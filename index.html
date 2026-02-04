@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>리더십 유형 체크 (워크샵용)</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --text:#111111;
+      --muted:#555555;
+      --red:#d00000;
+      --redSoft:#ffe5e5;
+      --radius:14px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans KR",sans-serif;background:#fff;color:#111}
+    .wrap{max-width:860px;margin:0 auto;padding:22px 16px 90px}
+    header{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+    h1{margin:0;font-size:20px}
+    .sub{margin:6px 0 0;color:var(--muted);font-size:13px}
+    .status{border:2px solid var(--red);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900}
+    .list{display:flex;flex-direction:column;gap:10px}
+    .card{border:2px solid var(--red);border-radius:var(--radius);padding:12px;background:#fff}
+    .q{font-weight:900;font-size:14px;margin:0 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .row{display:flex;gap:10px}
+    .btn{border:2px solid var(--red);background:#fff;padding:9px 12px;border-radius:12px;font-weight:900;cursor:pointer;min-width:110px}
+    .btn.selected{background:var(--redSoft)}
+    .sticky{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:2px solid var(--red);padding:10px}
+    .inner{max-width:860px;margin:0 auto;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .bar{width:220px;height:10px;border:2px solid var(--red);border-radius:999px;overflow:hidden}
+    .bar>div{height:100%;background:var(--red)}
+    .action{border:2px solid var(--red);background:#fff;padding:9px 12px;border-radius:12px;font-weight:900;cursor:pointer}
+    .primary{background:var(--red);color:#fff}
+    .action:disabled{opacity:.4}
+    .result{margin-top:14px;border:2px solid var(--red);border-radius:var(--radius);padding:14px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>리더십 유형 체크</h1>
+      <p class="sub">각 문항에 대해 Y / N을 선택하세요.</p>
+    </div>
+    <div class="status" id="status">0/28</div>
+  </header>
+  <div id="questions" class="list"></div>
+  <div id="result" class="result" style="display:none"></div>
+</div>
+
+<div class="sticky">
+  <div class="inner">
+    <div class="bar"><div id="prog"></div></div>
+    <div>
+      <button class="action primary" id="calc" disabled>내 유형 보기</button>
+      <button class="action" id="reset">초기화</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ORIGINAL_BANK = [
+  // 해결사형
+  {type:"해결사형", text:"팀원이 질문하면 바로 답을 주는 편이다"},
+  {type:"해결사형", text:"팀원의 업무 처리가 답답하면 내가 직접 하는 것이 빠르다고 느낀다"},
+  {type:"해결사형", text:"팀원의 시행착오를 기다리기 어렵다"},
+  {type:"해결사형", text:"회의를 하면 결론을 빨리 내려주고 싶다"},
+  {type:"해결사형", text:"팀원의 일이 늘어질때 내가 개입해야 안심된다"},
+  {type:"해결사형", text:"팀원이 고민하는 시간이 비효율처럼 느껴질 때가 있다"},
+  {type:"해결사형", text:"내가 빠지면 일의 진행이 불안해질 것 같다"},
+
+  // 보호자형
+  {type:"보호자형", text:"팀원의 감정 상태가 나의 업무 판단에 크게 영향을 준다"},
+  {type:"보호자형", text:"팀원이 힘들어 보이면 기준을 낮추는 편이다"},
+  {type:"보호자형", text:"성과보다 팀원의 상태를 먼저 고려한다"},
+  {type:"보호자형", text:"팀원과 갈등 상황을 되도록 만들지 않으려 한다"},
+  {type:"보호자형", text:"팀원의 상태에 공감 후 기준을 말하는 것이 어렵다"},
+  {type:"보호자형", text:"팀원이 상처 받을까 봐 피드백을 미룬 적이 있다"},
+  {type:"보호자형", text:"팀원의 어려움을 내가 대신 안고 가는 편이다"},
+
+  // 관리자형
+  {type:"관리자형", text:"보고 형식이나 절차가 어긋나면 신경 쓰인다"},
+  {type:"관리자형", text:"정해진 규칙(프로세스)이 지켜지지 않으면 개입한다"},
+  {type:"관리자형", text:"팀원의 업무 과정 관리에 많은 에너지를 쓴다"},
+  {type:"관리자형", text:"업무 진행 시 예외 상황이 생기면 불편함을 느낀다"},
+  {type:"관리자형", text:"일은 기준대로 진행되어야 한다고 생각한다"},
+  {type:"관리자형", text:"나에게 보고 없이 진행되는 일이 불안하다"},
+  {type:"관리자형", text:"통제되지 않는 상황을 부담스럽게 느낀다"},
+
+  // 기준형
+  {type:"기준형", text:"바로 답을 주기보다 판단 기준을 먼저 묻는다"},
+  {type:"기준형", text:"결정은 팀원이 하되 기준은 명확히 제시한다"},
+  {type:"기준형", text:"지금 당장은 내가 정리해주면 빠르지만, 팀원이 스스로 판단하게 두는 편이다"},
+  {type:"기준형", text:"감정에 공감하되 기준은 분리해 말한다"},
+  {type:"기준형", text:"팀원이 판단해야 할 상황에서, 내가 대신 답을 주려는 순간을 의식적으로 멈춘다"},
+  {type:"기준형", text:"내 판단이 기준에 맞는지 스스로 점검한다"},
+  {type:"기준형", text:"팀원에게 기준을 설명하는 데 시간을 쓴다"},
+];
+
+const TYPES = ["해결사형","보호자형","관리자형","기준형"];
+const MAX_PER_TYPE = 7;
+
+// 섞기 (페이지 로드마다 랜덤)
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+  return a;
+}
+
+const BANK = shuffle(ORIGINAL_BANK.slice());
+const answers = Array(BANK.length).fill(null);
+
+const qWrap = document.getElementById("questions");
+const status = document.getElementById("status");
+const prog = document.getElementById("prog");
+const calcBtn = document.getElementById("calc");
+const resetBtn = document.getElementById("reset");
+const result = document.getElementById("result");
+
+function render(){
+  qWrap.innerHTML = "";
+  BANK.forEach((q, i) => {
+    const ySel = answers[i] === true ? "selected" : "";
+    const nSel = answers[i] === false ? "selected" : "";
+    qWrap.insertAdjacentHTML("beforeend", `
+      <div class="card">
+        <div class="q" title="${q.text}">${i+1}. ${q.text}</div>
+        <div class="row">
+          <button class="btn ${ySel}" data-i="${i}" data-v="Y" type="button">Y</button>
+          <button class="btn ${nSel}" data-i="${i}" data-v="N" type="button">N</button>
+        </div>
+      </div>
+    `);
+  });
+
+  // ✅ 클릭 로직 안전하게: 이벤트 타겟 기준으로 처리
+  document.querySelectorAll(".btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const el = e.currentTarget;
+      const i = Number(el.dataset.i);
+      const v = el.dataset.v;
+      answers[i] = (v === "Y");
+      render();
+      update();
+    });
+  });
+}
+
+function update(){
+  const done = answers.filter(v => v !== null).length;
+  status.textContent = `${done}/${BANK.length}`;
+  prog.style.width = `${(done / BANK.length) * 100}%`;
+  calcBtn.disabled = done !== BANK.length;
+}
+
+function computeScores(){
+  const score = Object.fromEntries(TYPES.map(t => [t, 0]));
+  BANK.forEach((q, i) => {
+    if (answers[i] === true) score[q.type] += 1;
+  });
+  const ranked = TYPES.map(t => ({type:t, score:score[t]}))
+                      .sort((a,b)=> b.score - a.score);
+  return {score, ranked};
+}
+
+calcBtn.addEventListener("click", () => {
+  const missing = answers.some(v => v === null);
+  if (missing) { alert("미응답 문항이 있습니다."); return; }
+
+  const {score, ranked} = computeScores();
+  const top = ranked[0], second = ranked[1];
+
+  // ✅ '세부 결과'가 보이도록 4유형 점수도 같이 출력
+  const META = {
+    "해결사형": { icon: "⚡", desc: "속도와 즉각적 해결로 상황을 정리하는 리더십" },
+    "보호자형": { icon: "🛡️", desc: "사람과 분위기를 먼저 살피는 리더십" },
+    "관리자형": { icon: "📋", desc: "규칙과 구조로 안정성을 만드는 리더십" },
+    "기준형":   { icon: "🧭", desc: "기준과 방향으로 판단을 맡기는 리더십" },
+  };
+
+  result.style.display = "block";
+  result.innerHTML = `
+    <div style="font-weight:900; margin-bottom:10px;">
+      주요 유형: ${META[top.type].icon} ${top.type} (${top.score}/${MAX_PER_TYPE})<br>
+      <span style="font-size:13px; font-weight:400;">${META[top.type].desc}</span><br><br>
+      보조 유형: ${META[second.type].icon} ${second.type} (${second.score}/${MAX_PER_TYPE})
+    </div>
+
+    <div style="margin-top:12px; display:flex; flex-direction:column; gap:8px;">
+      ${TYPES.map(t => {
+        const pct = (score[t] / MAX_PER_TYPE) * 100;
+        return `
+          <div style="border:2px solid var(--red); border-radius:12px; padding:10px; display:flex; gap:10px; align-items:center;">
+            <div style="font-size:20px;">${META[t].icon}</div>
+            <div style="flex:1;">
+              <div style="display:flex; justify-content:space-between; font-weight:900; margin-bottom:4px;">
+                <span>${t}</span><span>${score[t]}/${MAX_PER_TYPE}</span>
+              </div>
+              <div style="font-size:12px; color:#555; margin-bottom:6px;">${META[t].desc}</div>
+              <div style="height:8px; border:2px solid var(--red); border-radius:999px; overflow:hidden;">
+                <div style="height:100%; width:${pct}%; background:var(--red);"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+  result.scrollIntoView({behavior:"smooth"});
+});
+
+resetBtn.addEventListener("click", () => {
+  answers.fill(null);
+  result.style.display = "none";
+  render();
+  update();
+  window.scrollTo({top:0, behavior:"smooth"});
+});
+
+render();
+update();
+</script>
+</body>
+</html>
